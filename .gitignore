@@ -1,0 +1,4 @@
+.ipynb_checkpoints/
+data_4/
+spark-3.0.3-bin-hadoop2.7/
+*.parquet
