@@ -107,5 +107,108 @@ but it's something worth calling out. Hard coding constraints is generally frown
 
 I ran into a few bugs as I was working on this. Here, I'll detail how they were found and fixed.
 
-### Possible pandas encoding issue
+### Pandas encoding issue
 
+Running data sets 2-4 resulted in the following error:
+
+```
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x93 in position 0: invalid start byte
+```
+
+Luckily switching to a pure spark solution was able to resolve this on its own. If not, 
+I could have tried inferring the encoding using **chardet** or something similar, but 
+I'm not aware of a foolproof way to figure out the proper encoding without some trial 
+and error. Glad this one wasn't a major issue.
+
+### Age bucketing bug
+
+The **age_bucket()** function has a bug in it at this line:
+
+```
+    elif age > 80:
+        return 90
+```
+
+I glossed over it at first, but started noticing that my output never included results 
+for this age bucket, even with sufficiently large data sets. Once I noticed that, tracing it 
+back to this line was pretty easy.
+
+### Results not being aggregated by count
+
+Initially, we have this line:
+
+```
+.withColumn(
+        '_row',
+        sf.row_number().over(Window().partitionBy(['AGE_BUCKET']).orderBy(sf.desc('count'))))
+    .filter(sf.col('_row') == 1)
+```
+
+So we're partitioning by age bucket, ordering by count, and then just picking the top count. 
+But if we have multiple ICD codes with the same count, we're not capturing that, we're 
+just grabbing whichever one happens to sit at the top by its secondary ordering column. 
+This will skew our results and not give us the answer we're really looking for. The line 
+above hasn't changed, but I have aggregated codes with an identical count before we hit 
+the partitioning with this line:
+
+```
+joined
+    .groupBy('AGE_BUCKET', 'GROUP').count()
+    .groupBy('AGE_BUCKET', 'count').agg(sf.collect_set('GROUP'))
+```
+
+I also split up the transformation some so I could see the intermediate results, and so 
+it was easier to reason about.
+
+### Cleaning bad rows in the data sets
+
+A simple data quality check showed that there was at least one bad row in the demographics data:
+
+```
++-------+------+--------------------+----------+---------+
+|summary|CLINIC|                 MRN|FIRST_NAME|LAST_NAME|
++-------+------+--------------------+----------+---------+
+|  count| 10000|               10000|     10000|    10000|
+|   mean|  null|     5.07491028763E7|      null|     null|
+| stddev|  null|2.8727825630081754E7|      null|     null|
+|    min|     A|            01015674|     Aaron|   Abbott|
+|    max|     C|            99998883|       Zoe|�the Kid�|
++-------+------+--------------------+----------+---------+
+```
+
+I implemented some simple data cleaning, but didn't want to be too aggressive with it--we 
+don't want to drop any rows that could still be valid for analysis, even if some fields 
+didn't quite match what we expect. Dropping rows is also usually a last resort, but 
+fields like MRN and ICD_CODE are categorical variables and can't be imputed anyway.
+Bearing all that in mind, I dropped only rows that couldn't have been used for analysis 
+because of invalid/missing data, and duplicate rows, which can be safely dropped here.
+
+## Further improvements
+
+At this point, I would say the code was probably good enough to pass review. But 
+I was able to make some more improvements to make the code more readable and more 
+maintainable moving forward.
+
+### Using enums and top-level constants for configuration
+
+I had to run this notebook multiple times checking different things--sometimes 
+I was checking output to test a bugfix, sometimes I was comparing performance to a 
+previous benchmark. I added some configuration settings at the top to streamline this process.
+
+### Abstracting read_csv() to read_file()
+
+After converting to parquet, I originally had separate **read_csv()** and **read_parquet()** functions.
+I decided to combine these into a single **read_file()** function that handles both appropriately.
+
+### Declaring rather than inferring schemas
+
+Spark allows us to define schemas including data type, and it will try to infer them 
+if we don't. Defining them ahead of time for small tables like this lets us avoid an extra 
+initial pass through the data for spark's schema inference, and it allows us to handle setting date 
+fields as date data types all in one go.
+
+### Using different variable names throughout the pipeline
+
+In order to keep each cell atomic and idempotent, I updated variable names to use new ones 
+after each transformation instead of overwriting the old references. This was mostly to help with 
+my own testing and for maintainability--using the same variable names throughout is fine for quick analyses.
