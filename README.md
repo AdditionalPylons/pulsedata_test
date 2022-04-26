@@ -15,6 +15,7 @@ as much as you can.
 The main goal of this assignment is to see how well you can read and understand existing code, and
 how well you communicate your thought process while examining the pipeline.
 
+
 ## Approach
 
 If this were a code review, I'd be able to leave in-line comments with suggested changes, 
@@ -23,11 +24,13 @@ the way. I started by reading the code top to bottom, tried running it with the 
 data sets, and then went line-by-line through function calls/transformations where something 
 seemed off.
 
+
 ## Initial Impressions
 
 The code is easy enough to reason about, but I saw a few problems right away:
 
 ### Code Organization
+
 
 #### Imports aren't handled in a very uniform way
 
@@ -35,6 +38,7 @@ We import all of pyspark, but then import from
 pyspark.sql twice separately. The initial pyspark import is never used directly. It's not 
 *too* bad here, but in general we want to consolidate this so that dependencies are easier 
 to track and our namespace won't get cluttered.
+
 
 #### Cells could benefit from some reordering
 
@@ -44,16 +48,17 @@ after we've defined all our supporting functions. This isn't *wrong*, but it mak
 to me to initialize it right away so we're not hoisting references to it in **read_csv()** or 
 **transform_encounters()** when it doesn't exist yet.
 
-### Obvious improvements
 
-#### We can get rid of pandas and drop a dependency
+## Obvious improvements
+
+### We can get rid of pandas and drop a dependency
 
 I love pandas too, but it's not a one-size fits all solution. Running data sets 2-4 suggests 
 that pandas may be running into some encoding issues, and we only use it on one line anyway.
 Everything we want to do here with pandas can be done more effectively / cleanly using 
 spark itself directly with a couple of tweaks.
 
-#### We can use a columnar data store instead of CSV
+### We can use a columnar data store instead of CSV
 
 I chose parquet because it's what I'm most familiar with and because it's an effective 
 long-term solution, but there are other options. Having Pyarrow in requirements.txt implies 
@@ -64,13 +69,13 @@ on the first run takes some extra time, but we more than make up for it with fas
 transforms later. Also, once we have convert to parquet once, there is no need to do it again 
 and subsequent runs can be much faster.
 
-#### We should add some data quality checks
+### We should add some data quality checks
 
 I'm ok with no data cleaning happening here yet (maybe this is an intermediary transform 
 after we've already done some cleaning in the pipeline), but no checks is asking for trouble.
 Implementing even some basic checks shows there are some issues right away in some of the data sets.
 
-#### We should dig deeper on some possible bugs
+### We should dig deeper on some possible bugs
 
 I couldn't put my finger on it right away when I first ran this notebook, but something
 definitely felt off. For smaller data sets, I would have expected some collisions for most 
@@ -79,9 +84,9 @@ data sets always seemed to converge around ICD_CODE 10 as the most common for ea
 These could be idiosyncrasies of the data, but they suggest we should do some testing with a 
 known outcome to verify our pipeline works as expected.
 
-### Ambiguities
+## Ambiguities
 
-#### We're only using the primary ICD code for analysis
+### We're only using the primary ICD code for analysis
 Per the directions, it seems like we want to consider *all* ICD codes in our analysis:
 > The objective of the provided notebook is to find the most common ICD group
 for a set of age ranges. In other words, for patients that are 40-50 years old
@@ -95,7 +100,7 @@ But then we're only actually counting the primary codes:
 I have updated this in my submission, but it's really a question of what we are 
 actually looking to measure. There is nothing wrong technically with the way it was before.
 
-#### We're hard coding ignoring ages < 40
+### We're hard coding ignoring ages < 40
 
 In **age_bucket()** we're returning 0 for any ages < 40. If we decide in a future 
 analysis that we want to track these values, it'll be harder to change than if we 
