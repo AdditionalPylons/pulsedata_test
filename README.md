@@ -31,7 +31,6 @@ The code is easy enough to reason about, but I saw a few problems right away:
 
 ### Code Organization
 
-
 #### Imports aren't handled in a very uniform way
 
 We import all of pyspark, but then import from 
@@ -87,6 +86,7 @@ known outcome to verify our pipeline works as expected.
 ## Ambiguities
 
 ### We're only using the primary ICD code for analysis
+
 Per the directions, it seems like we want to consider *all* ICD codes in our analysis:
 > The objective of the provided notebook is to find the most common ICD group
 for a set of age ranges. In other words, for patients that are 40-50 years old
