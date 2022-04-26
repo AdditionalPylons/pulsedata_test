@@ -42,22 +42,22 @@ to track and our namespace won't get cluttered.
 #### Cells could benefit from some reordering
 
 I can understand the flow here, but changing data sets means I need to scroll to 
-halway through the code to update a variable. Also, spark isn't initialized until 
-after we've defined all our supporting functions. This isn't *wrong*, but it makes sense  
+halfway through the code to update a variable. Also, spark isn't initialized until 
+after we've defined all our supporting functions. This isn't *wrong*, but it makes sense 
 to me to initialize it right away so we're not hoisting references to it in **read_csv()** or 
 **transform_encounters()** when it doesn't exist yet.
 
 
-## Obvious improvements
+### Obvious improvements
 
-### We can get rid of pandas and drop a dependency
+#### We can get rid of pandas and drop a dependency
 
 I love pandas too, but it's not a one-size fits all solution. Running data sets 2-4 suggests 
 that pandas may be running into some encoding issues, and we only use it on one line anyway.
 Everything we want to do here with pandas can be done more effectively / cleanly using 
 spark itself directly with a couple of tweaks.
 
-### We can use a columnar data store instead of CSV
+#### We can use a columnar data store instead of CSV
 
 I chose parquet because it's what I'm most familiar with and because it's an effective 
 long-term solution, but there are other options. Having Pyarrow in requirements.txt implies 
@@ -65,16 +65,16 @@ that using that was the intended solution, but I'm new to it (and spark more bro
 I decided to stick to what I knew would work. Parquet isn't the only answer, and I'd be happy 
 to learn and use the desired formats on the job. The downside to using parquet is that converting from CSV
 on the first run takes some extra time, but we more than make up for it with faster aggregate queries and 
-transforms later. Also, once we have convert to parquet once, there is no need to do it again 
+transforms later. Also, once we have converted to parquet once, there is no need to do it again 
 and subsequent runs can be much faster.
 
-### We should add some data quality checks
+#### We should add some data quality checks
 
 I'm ok with no data cleaning happening here yet (maybe this is an intermediary transform 
 after we've already done some cleaning in the pipeline), but no checks is asking for trouble.
 Implementing even some basic checks shows there are some issues right away in some of the data sets.
 
-### We should dig deeper on some possible bugs
+#### We should dig deeper on some possible bugs
 
 I couldn't put my finger on it right away when I first ran this notebook, but something
 definitely felt off. For smaller data sets, I would have expected some collisions for most 
@@ -150,8 +150,8 @@ Initially, we have this line:
 ```
 
 We're partitioning by age bucket, ordering by count, and then just picking the top count. 
-But if we have multiple ICD codes with the same count, we're not capturing that, we're 
-just grabbing whichever one happens to sit at the top by its secondary ordering column. 
+But if we have multiple ICD codes with the same count, we're not capturing all the codes that are tied for top spot, 
+we're just grabbing whichever one happens to sit at the top by its secondary ordering column. 
 This will skew our results and not give us the answer we're really looking for. The line 
 above hasn't changed, but I have aggregated codes with an identical count before we hit 
 the partitioning with this line:
