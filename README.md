@@ -149,7 +149,7 @@ Initially, we have this line:
     .filter(sf.col('_row') == 1)
 ```
 
-So we're partitioning by age bucket, ordering by count, and then just picking the top count. 
+We're partitioning by age bucket, ordering by count, and then just picking the top count. 
 But if we have multiple ICD codes with the same count, we're not capturing that, we're 
 just grabbing whichever one happens to sit at the top by its secondary ordering column. 
 This will skew our results and not give us the answer we're really looking for. The line 
